@@ -2,7 +2,7 @@
 use std::os::raw::{c_int,c_char};
 use std::mem::ManuallyDrop;
 #[allow(non_camel_case_types)]
-type __kernel_pid_t = i32;
+type __kernel_pid_t = c_int;
 const CN_IDX_PROC: c_int = 0x1;
 const CN_VAL_PROC: c_int = 0x1;
 #[allow(non_camel_case_types)]
@@ -51,6 +51,7 @@ pub struct ForkProcEvent {
 	pub child_tgid: __kernel_pid_t,
 }
 #[repr(C)]
+#[derive(Debug)]
 pub struct ExecProcEvent {
 	pub process_pid: __kernel_pid_t,
 	pub process_tgid: __kernel_pid_t,
@@ -107,9 +108,14 @@ pub union EventData {
 	pub coredump: ManuallyDrop<CoredumpProcEvent>,
 	pub exit: ManuallyDrop<ExitProcEvent>,
 }
+#[repr(align(8))]
+#[repr(C)]
+pub struct NanosecondTimestamp(u64);
 #[repr(C)]
 pub struct ProcEvent {
 	pub what: ProcCnEvent,
+	pub cpu: u32,
+	pub timestamp_ns: NanosecondTimestamp,
 	pub event_data: EventData,
 }
 extern "C" {
@@ -121,6 +127,7 @@ extern "C" {
 //====== main ======
 use std::io::Error;
 use std::io;
+use std::mem::MaybeUninit;
 fn main() -> io::Result<()> {
 	//====== connect ======
 	println!("connecting via netlink...");
@@ -131,6 +138,23 @@ fn main() -> io::Result<()> {
 	if unsafe { netlink_subscribe(fd,CN_IDX_PROC,CN_VAL_PROC) } < 0 {
 		return Err(Error::last_os_error());
 	}
+	println!("connected");
+	//====== mainloop ======
+	loop {
+		let mut event: ProcEvent = unsafe { MaybeUninit::zeroed().assume_init() };
+		let result = unsafe { get_proc_event(fd,&mut event) };
+		if result < 0 { break };
+		match &event.what {
+			ProcCnEvent::PROC_EVENT_EXEC => {
+				let mut exec_event = unsafe { event.event_data.exec };
+				println!("exec called {:?}",exec_event);
+				unsafe { ManuallyDrop::drop(&mut exec_event) };
+			},
+			_ => (),
+		}
+	}
+	//====== disconnect ======
+	println!("disconnecting from netlink.");
 	unsafe { netlink_disconnect(fd) };
 	Ok(())
 }
