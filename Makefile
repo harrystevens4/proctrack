@@ -1,4 +1,9 @@
 CFLAGS=-Wall -Wextra -g
 LDFLAGS=
-proctrack : src/main.o
-	$(CC) $^ -o $@ $(LDFLAGS)
+
+proctrackd : src/procconnector/libproccon.a src/proctrackd/main.rs
+	rustc -o $@ src/proctrackd/main.rs -L src/procconnector -l static=proccon
+
+src/procconnector/libproccon.a : src/procconnector/procconnector.o
+	ar rcs $@ $^
+
