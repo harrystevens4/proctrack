@@ -169,7 +169,7 @@ fn main() -> io::Result<()> {
 						//process thread group id == pid (it is the main thread)
 						if exec_event.process_pid == exec_event.process_tgid {
 							let process = processes.swap_remove(index);
-							println!("{:?} called exit",process);
+							println!("{:?} exited",process);
 						}
 				}
 				unsafe { ManuallyDrop::drop(&mut exec_event) };
