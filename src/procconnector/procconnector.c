@@ -118,10 +118,10 @@ int get_proc_event(int netlink_sock, struct proc_event *event){
 		if (message.connector_message.id.idx != CN_IDX_PROC || message.connector_message.id.val != CN_VAL_PROC) continue; //ignore non proc data
 
 		memcpy(event,&message.proc_event,sizeof(struct proc_event));
-		switch (message.proc_event.what){
-		case PROC_EVENT_EXEC:
-			printf("exec called on %lu\n",message.proc_event.event_data.exec.process_pid);
-		}
+		//switch (message.proc_event.what){
+		//case PROC_EVENT_EXEC:
+		//	printf("exec called on %lu\n",message.proc_event.event_data.exec.process_pid);
+		//}
 		break;
 	}
 	return 0;

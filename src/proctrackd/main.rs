@@ -128,6 +128,8 @@ extern "C" {
 use std::io::Error;
 use std::io;
 use std::mem::MaybeUninit;
+mod procfs;
+use procfs::Process;
 fn main() -> io::Result<()> {
 	//====== connect ======
 	println!("connecting via netlink...");
@@ -140,18 +142,41 @@ fn main() -> io::Result<()> {
 	}
 	println!("connected");
 	//====== mainloop ======
+	let mut processes = vec![];
 	loop {
+		//====== get an event ======
 		let mut event: ProcEvent = unsafe { MaybeUninit::zeroed().assume_init() };
 		let result = unsafe { get_proc_event(fd,&mut event) };
 		if result < 0 { break };
 		match &event.what {
+			//====== process event ======
 			ProcCnEvent::PROC_EVENT_EXEC => {
 				let mut exec_event = unsafe { event.event_data.exec };
-				println!("exec called {:?}",exec_event);
+				if let Some(process) = Process::find(exec_event.process_pid as i32){
+					println!("{:?} started",process);
+					processes.push(process);
+				}
+				unsafe { ManuallyDrop::drop(&mut exec_event) };
+			},
+			ProcCnEvent::PROC_EVENT_EXIT => {
+				let mut exec_event = unsafe { event.event_data.exec };
+				if let Some(index) = processes
+					.iter()
+					.enumerate()
+					.filter(|(_,x)| x.pid == exec_event.process_pid)
+					.map(|(i,_)| i)
+					.next(){
+						//process thread group id == pid (it is the main thread)
+						if exec_event.process_pid == exec_event.process_tgid {
+							let process = processes.swap_remove(index);
+							println!("{:?} called exit",process);
+						}
+				}
 				unsafe { ManuallyDrop::drop(&mut exec_event) };
 			},
 			_ => (),
 		}
+		//println!("{:?}",processes);
 	}
 	//====== disconnect ======
 	println!("disconnecting from netlink.");
