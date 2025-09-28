@@ -1,4 +1,5 @@
 use std::fs::File;
+use std::io::Write;
 use procfs::Process;
 use datetime::DateTime;
 
@@ -23,8 +24,13 @@ impl ProcessLogger {
 	}
 	pub fn log(&mut self,line: &str){
 		let datetime = DateTime::now();
+		//put the \n here so i can reuse it when writing to a log file
+		let formatted_line = format!("[{}] {line}\n",datetime.strftime("%H:%M:%S"));
 		if self.use_stdout {
-			println!("[{}] {line}",datetime.strftime("%H:%M:%S"));
+			print!("{formatted_line}");
+		}
+		if let Some(ref mut file) = &mut self.log_file {
+			let _ = file.write(formatted_line.as_bytes());
 		}
 	}
 	pub fn log_exec(&mut self, process: &Process){

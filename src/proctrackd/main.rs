@@ -10,7 +10,9 @@ extern "C" {
 use std::mem::ManuallyDrop;
 use std::io::{Error};
 use std::io;
+use std::env;
 use std::mem::MaybeUninit;
+use std::fs::OpenOptions;
 
 mod procfs;
 use procfs::Process;
@@ -20,12 +22,45 @@ mod logger;
 use logger::ProcessLogger;
 mod datetime;
 use datetime::DateTime;
+mod args;
+use args::*;
 
 //use std::time::{Duration, Instant};
 
 fn main() -> io::Result<()> {
+	//====== process arguments ======
+	let args = Args::new(
+		env::args().enumerate().filter(|(i,_)| *i != 0).map(|(_,x)| x).collect(),
+		vec![
+			//short    long         argument?
+			(Some("h"),Some("help"),false),
+			(Some("q"),Some("quiet"),false),
+			(Some("f"),Some("log-file"),true),
+		]
+	).map_err(|e|{
+		eprintln!("Error processing args: {e:?}");
+		std::process::exit(1);
+		#[allow(unreachable_code)] //bro you cannot be serious how is ! still unstable
+		io::ErrorKind::Other
+	})?;
+	//--- help ---
+	if args.has("h","help"){
+		print_help();
+		return Ok(());
+	}
+	//--- quiet mode ---
+	let use_stdout = if args.has("q","quiet") {false} else {true};
+	//--- log file ---
+	let log_file = if let Some(filename) = args.get_arg(Some("f"),Some("log-file")) {
+		Some(OpenOptions::new()
+			.read(false)
+			.write(true)
+			.create(true)
+			.append(true)
+			.open(filename)?)
+	} else {None};
 	//====== setup logger ======
-	let mut logger = ProcessLogger::builder().to_stdout(true).to_file(None);
+	let mut logger = ProcessLogger::builder().to_stdout(use_stdout).to_file(log_file);
 	//====== connect ======
 	let fd = unsafe { netlink_connect(CN_IDX_PROC) };
 	if fd < 0 {
@@ -77,4 +112,11 @@ fn main() -> io::Result<()> {
 	println!("disconnecting from netlink.");
 	unsafe { netlink_disconnect(fd) };
 	Ok(())
+}
+fn print_help(){
+	println!("Program to log other process' calls to exec and exit.");
+	println!("usage: {} [options]",env::args().next().unwrap_or("proctrackd".into()));
+	println!("	-h, --help            : show help text");
+	println!("	-q, --quiet           : do not show logs to stdout");
+	println!("	-f, --log-file <file> : output logs to this file");
 }
