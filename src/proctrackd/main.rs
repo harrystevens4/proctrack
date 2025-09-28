@@ -19,6 +19,7 @@ use proc_connector_structures::*;
 mod logger;
 use logger::ProcessLogger;
 mod datetime;
+use datetime::DateTime;
 
 //use std::time::{Duration, Instant};
 
@@ -26,7 +27,6 @@ fn main() -> io::Result<()> {
 	//====== setup logger ======
 	let mut logger = ProcessLogger::builder().to_stdout(true).to_file(None);
 	//====== connect ======
-	println!("connecting via netlink...");
 	let fd = unsafe { netlink_connect(CN_IDX_PROC) };
 	if fd < 0 {
 		return Err(Error::last_os_error());
@@ -34,8 +34,8 @@ fn main() -> io::Result<()> {
 	if unsafe { netlink_subscribe(fd,CN_IDX_PROC,CN_VAL_PROC) } < 0 {
 		return Err(Error::last_os_error());
 	}
-	println!("connected");
-	logger.log("started");
+	let startup_message = format!("started log for {}",DateTime::now().strftime("%d/%m/%Y"));
+	logger.log(&startup_message);
 	//====== mainloop ======
 	let mut processes = vec![];
 	loop {
@@ -48,7 +48,7 @@ fn main() -> io::Result<()> {
 			ProcCnEvent::PROC_EVENT_EXEC => {
 				let mut exec_event = unsafe { event.event_data.exec };
 				if let Some(process) = Process::find(exec_event.process_pid as i32){
-					println!("{:?} started",process);
+					logger.log_exec(&process);
 					processes.push(process);
 				}
 				unsafe { ManuallyDrop::drop(&mut exec_event) };
@@ -64,7 +64,7 @@ fn main() -> io::Result<()> {
 						//process thread group id == pid (it is the main thread)
 						if exec_event.process_pid == exec_event.process_tgid {
 							let process = processes.swap_remove(index);
-							println!("{:?} exited",process);
+							logger.log_exit(&process);
 						}
 				}
 				unsafe { ManuallyDrop::drop(&mut exec_event) };
