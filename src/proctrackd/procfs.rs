@@ -1,10 +1,12 @@
 use std::path::Path;
 use std::fs;
+use std::time::{Instant};
 #[derive(Debug)]
 #[allow(dead_code)]
 pub struct Process {
 	pub pid: i32,
 	pub args: Vec<String>,
+	pub start_time: Instant,
 }
 impl Process {
 	pub fn find(pid: i32) -> Option<Self> {
@@ -14,6 +16,7 @@ impl Process {
 		Some(Process {
 			pid,
 			args: Self::get_process_args(pid),
+			start_time: Self::get_process_start_time(pid),
 		})
 	}
 	fn get_process_args(pid: i32) -> Vec<String> {
@@ -32,5 +35,8 @@ impl Process {
 			current_arg.push(char::from(byte));
 		}
 		args
+	}
+	fn get_process_start_time(_pid: i32) -> Instant {
+		Instant::now()
 	}
 }
