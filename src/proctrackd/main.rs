@@ -8,15 +8,23 @@ extern "C" {
 }
 //====== main ======
 use std::mem::ManuallyDrop;
-use std::io::Error;
+use std::io::{Error};
 use std::io;
 use std::mem::MaybeUninit;
+
 mod procfs;
+use procfs::Process;
 mod proc_connector_structures;
 use proc_connector_structures::*;
-use procfs::Process;
+mod logger;
+use logger::ProcessLogger;
+mod datetime;
+
 //use std::time::{Duration, Instant};
+
 fn main() -> io::Result<()> {
+	//====== setup logger ======
+	let mut logger = ProcessLogger::builder().to_stdout(true).to_file(None);
 	//====== connect ======
 	println!("connecting via netlink...");
 	let fd = unsafe { netlink_connect(CN_IDX_PROC) };
@@ -27,6 +35,7 @@ fn main() -> io::Result<()> {
 		return Err(Error::last_os_error());
 	}
 	println!("connected");
+	logger.log("started");
 	//====== mainloop ======
 	let mut processes = vec![];
 	loop {
