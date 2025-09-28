@@ -61,7 +61,7 @@ pub struct IdProcEvent {
 	pub process_pid: __kernel_pid_t,
 	pub process_tgid: __kernel_pid_t,
 	pub r: EventDataIdR,
-	pub e: EventDataIdR,
+	pub e: EventDataIdE,
 }
 #[repr(C)]
 pub struct SidProcEvent {
