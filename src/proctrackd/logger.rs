@@ -24,7 +24,7 @@ impl ProcessLogger {
 		self
 	}
 	pub fn to_file(mut self, file: Option<impl AsRef<Path>>) -> Self {
-		self.log_file = if let Some(path) = file {
+		self.log_file = if let Some(ref path) = file {
 			let path_buf: PathBuf = path.as_ref().to_owned();
 			if path_buf.exists(){
 				//rename all the older log files such that log.txt is log.txt.1 and log.txt.1 is log.txt.2
@@ -67,7 +67,7 @@ impl ProcessLogger {
 				.append(true)
 				.open(path_buf).ok()
 		}else {None};
-		if self.log_file.is_none(){
+		if self.log_file.is_none() && file.is_some() {
 			eprintln!("Could not open log file: {:?}",std::io::Error::last_os_error());
 		}
 		self
