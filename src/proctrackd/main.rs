@@ -12,7 +12,7 @@ use std::io::{Error};
 use std::io;
 use std::env;
 use std::mem::MaybeUninit;
-use std::fs::OpenOptions;
+use std::path::Path;
 
 mod procfs;
 use procfs::Process;
@@ -36,6 +36,7 @@ fn main() -> io::Result<()> {
 			(Some("h"),Some("help"),false),
 			(Some("q"),Some("quiet"),false),
 			(Some("f"),Some("log-file"),true),
+			(Some("n"),Some("max-log-files"),true),
 		]
 	).map_err(|e|{
 		eprintln!("Error processing args: {e:?}");
@@ -52,15 +53,23 @@ fn main() -> io::Result<()> {
 	let use_stdout = if args.has("q","quiet") {false} else {true};
 	//--- log file ---
 	let log_file = if let Some(filename) = args.get_arg(Some("f"),Some("log-file")) {
-		Some(OpenOptions::new()
-			.read(false)
-			.write(true)
-			.create(true)
-			.append(true)
-			.open(filename)?)
+		Some(Path::new(filename))
 	} else {None};
+	//--- max log files ---
+	let max_log_files = if let Some(count) = args.get_arg(Some("n"),Some("max-log-files")){
+		match count.parse::<usize>(){
+			Ok(n) => n,
+			Err(e) => {
+				eprintln!("Error parsing max log files: {e:?}");
+				std::process::exit(1)
+			},
+		}
+	} else {1};
 	//====== setup logger ======
-	let mut logger = ProcessLogger::builder().to_stdout(use_stdout).to_file(log_file);
+	let mut logger = ProcessLogger::builder()
+		.to_stdout(use_stdout)
+		.max_log_files(max_log_files)
+		.to_file(log_file);
 	//====== connect ======
 	let fd = unsafe { netlink_connect(CN_IDX_PROC) };
 	if fd < 0 {
@@ -116,7 +125,8 @@ fn main() -> io::Result<()> {
 fn print_help(){
 	println!("Program to log other process' calls to exec and exit.");
 	println!("usage: {} [options]",env::args().next().unwrap_or("proctrackd".into()));
-	println!("	-h, --help            : show help text");
-	println!("	-q, --quiet           : do not show logs to stdout");
-	println!("	-f, --log-file <file> : output logs to this file");
+	println!("	-h, --help              : show help text");
+	println!("	-q, --quiet             : do not show logs to stdout");
+	println!("	-f, --log-file <file>   : output logs to this file");
+	println!("	-n, --max-log-files <n> : when creating a new log files, only keep the last n");
 }
