@@ -18,4 +18,3 @@ Use `make proctrackd` to make the daemon.
 # Usage
 
 Try `proctrackd -h` for command line help.
-Feel free to use it for spying or something cause that's what I'm using it for
